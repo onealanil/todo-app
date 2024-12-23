@@ -2,37 +2,47 @@
 
 import { useState } from "react";
 import { api } from "~/trpc/react";
+import { formatDistanceToNow } from "date-fns";
 
 export default function TodoList() {
   const [newTask, setNewTask] = useState("");
   const utils = api.useContext();
 
-  const { data , isLoading } = api.task.getAll.useQuery();
+  const { data, isLoading } = api.task.getAll.useQuery();
   const createTask = api.task.create.useMutation({
     onSuccess: () => {
       setNewTask("");
       void utils.task.getAll.invalidate();
     },
   });
+  const isCreating: boolean = createTask.isPending;
+
   const toggleTask = api.task.toggle.useMutation({
     onSuccess: () => {
       void utils.task.getAll.invalidate();
     },
   });
+
   const deleteTask = api.task.delete.useMutation({
     onSuccess: () => {
       void utils.task.getAll.invalidate();
     },
   });
 
-  if (isLoading) return <div>Loading...</div>;
+  if (isLoading) {
+    return (
+      <div className="flex min-h-screen items-center justify-center">
+        <div className="h-16 w-16 animate-spin rounded-full border-b-2 border-t-2 border-blue-500"></div>
+      </div>
+    );
+  }
 
   return (
     <div className="w-full max-w-md">
       <form
         onSubmit={(e) => {
           e.preventDefault();
-          if (newTask.trim()) {
+          if (newTask.trim() && !isCreating) {
             createTask.mutate({ title: newTask });
           }
         }}
@@ -48,8 +58,9 @@ export default function TodoList() {
         <button
           type="submit"
           className="rounded-md bg-green-500 px-4 py-2 font-semibold hover:bg-green-600"
+          disabled={createTask.isPending}
         >
-          Add
+          { isCreating ? "Adding..." : "Add"}
         </button>
       </form>
 
@@ -70,13 +81,22 @@ export default function TodoList() {
               }
               className="h-5 w-5 rounded"
             />
-            <span
-              className={`flex-1 ${
-                task.completed ? "text-neutral-500" : ""
-              }`}
-            >
-              {task.title}
-            </span>
+            <div className="flex w-full flex-col px-3">
+              <span
+                className={`flex-1 ${task.completed ? "text-neutral-500" : ""}`}
+              >
+                {task.title}
+              </span>
+              <span
+                className={`flex-1 ${
+                  task.completed ? "text-neutral-500" : ""
+                } text-xs`}
+              >
+                {formatDistanceToNow(new Date(task.createdAt), {
+                  addSuffix: true,
+                })}
+              </span>
+            </div>
             <button
               onClick={() => deleteTask.mutate({ id: task.id })}
               className="text-red-500 hover:text-red-400"
